@@ -8,12 +8,12 @@ export async function triggerProvisioning(userId: string, finalPrompt: string) {
     if (!USER || !PASS) return { error: "Server Configuration Error" };
 
     try {
-        // 1. Prepare Inputs
         const formData = new FormData();
         formData.append("userId", userId);
+
+        // ✅ FIX: Send the raw string. Kestra's "| json" filter will handle the safety.
         formData.append("projectDescription", finalPrompt);
 
-        // 2. Trigger Kestra
         const response = await fetch(
             `${KESTRA_URL}/api/v1/executions/dev.agentic/agentic-ide-provisioner?wait=true`,
             {
@@ -27,10 +27,17 @@ export async function triggerProvisioning(userId: string, finalPrompt: string) {
         );
 
         if (!response.ok) {
-            throw new Error(`Provisioning failed: ${response.statusText}`);
+            const errText = await response.text();
+            console.error("Kestra Error:", errText);
+            throw new Error(`Kestra failed: ${response.statusText}`);
         }
 
         const data = await response.json();
+
+        if (!data.outputs?.final_https_link) {
+            return { success: false, error: "Flow finished but returned no URL." };
+        }
+
         return { success: true, url: data.outputs.final_https_link };
 
     } catch (err: any) {

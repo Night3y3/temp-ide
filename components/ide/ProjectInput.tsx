@@ -6,15 +6,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 
 interface ProjectInputProps {
-    userId: string;
-    setUserId: (v: string) => void;
+    projectName: string;
+    setProjectName: (v: string) => void;
     description: string;
     setDescription: (v: string) => void;
     onAnalyze: () => void;
     error: string | null;
 }
 
-export function ProjectInput({ userId, setUserId, description, setDescription, onAnalyze, error }: ProjectInputProps) {
+export function ProjectInput({ projectName, setProjectName, description, setDescription, onAnalyze, error }: ProjectInputProps) {
     return (
         // FIX 1: Add 'h-fit' and prevent layout shifts with a fixed width container
         <Card className="bg-slate-900 border-slate-800 shadow-2xl w-[500px] h-fit transition-all duration-200">
@@ -31,11 +31,11 @@ export function ProjectInput({ userId, setUserId, description, setDescription, o
 
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-300">User ID</label>
+                    <label className="text-sm font-medium text-slate-300">Project Name</label>
                     <Input
-                        placeholder="e.g. dev_01"
-                        value={userId}
-                        onChange={(e) => setUserId(e.target.value)}
+                        placeholder="e.g. my-awesome-app"
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
                         className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600"
                     />
                 </div>
@@ -66,7 +66,7 @@ export function ProjectInput({ userId, setUserId, description, setDescription, o
             <CardFooter>
                 <Button
                     onClick={onAnalyze}
-                    disabled={!userId || !description}
+                    disabled={!projectName || !description}
                     className="w-full bg-blue-600 hover:bg-blue-500 text-white transition-all active:scale-[0.98]"
                 >
                     Analyze & Plan <ChevronRight className="ml-2 h-4 w-4" />

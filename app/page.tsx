@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Cpu } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Step, PlanResponse } from "@/components/types";
 
 // Import Modular Components
@@ -10,23 +11,50 @@ import { ProjectInput } from "@/components/ide/ProjectInput";
 import { ClarificationForm } from "@/components/ide/ClarificationForm";
 import { ProvisioningLoader } from "@/components/ide/ProvisioningLoader";
 import { SuccessView } from "@/components/ide/SuccessView";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { SignupForm } from "@/components/auth/SignupForm";
 import { triggerProvisioning, triggerTermination } from "@/actions/kestra";
 
 export default function AgenticIDEPage() {
+  const router = useRouter();
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  
   // State
   const [step, setStep] = useState<Step>('input');
-  const [userId, setUserId] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [finalUrl, setFinalUrl] = useState<string | null>(null);
   const [instanceId, setInstanceId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isTerminating, setIsTerminating] = useState(false);
 
+  // Check authentication on mount
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/auth/me");
+        setIsAuthenticated(res.ok);
+      } catch {
+        setIsAuthenticated(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  // Auth handlers
+  function handleAuthSuccess() {
+    setIsAuthenticated(true);
+    router.refresh();
+  }
+
   // Handlers
   async function handleAnalyze() {
-    if (!userId || !description) return;
+    if (!projectName || !description) return;
     setStep('analyzing');
     setError(null);
 
@@ -49,19 +77,61 @@ export default function AgenticIDEPage() {
   async function handleProvision() {
     setStep('provisioning');
 
-    // Combine prompt + answers
-    const clarifications = Object.entries(answers).map(([_, ans]) => `- ${ans}`).join("\n");
-    const finalPrompt = `PROJECT GOAL: ${description}\nTECH SPECS:\n${clarifications}`;
+    try {
+      // Create project in database first
+      const createRes = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: projectName,
+          description: description,
+        }),
+      });
 
-    const safePrompt = finalPrompt.replace(/\r/g, "");
-    const result = await triggerProvisioning(userId, safePrompt);
+      if (!createRes.ok) {
+        throw new Error("Failed to create project");
+      }
 
-    if (result.success && result.url) {
-      setFinalUrl(result.url);
-      setInstanceId(result.instanceId || null);
-      setStep('completed');
-    } else {
-      setError(result.error || "Provisioning failed");
+      const { project } = await createRes.json();
+      setProjectId(project.id);
+
+      // Combine prompt + answers
+      const clarifications = Object.entries(answers).map(([_, ans]) => `- ${ans}`).join("\n");
+      const finalPrompt = `PROJECT GOAL: ${description}\nTECH SPECS:\n${clarifications}`;
+
+      const safePrompt = finalPrompt.replace(/\r/g, "");
+      const result = await triggerProvisioning(projectName, safePrompt);
+
+      if (result.success && result.url) {
+        setFinalUrl(result.url);
+        setInstanceId(result.instanceId || null);
+
+        // Update project with URL and instanceId
+        await fetch(`/api/projects/${project.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: result.url,
+            instanceId: result.instanceId || null,
+            status: "active",
+          }),
+        });
+
+        setStep('completed');
+      } else {
+        // Update project status to failed
+        if (project.id) {
+          await fetch(`/api/projects/${project.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "terminated" }),
+          });
+        }
+        setError(result.error || "Provisioning failed");
+        setStep('input');
+      }
+    } catch (err: any) {
+      setError(err.message || "Provisioning failed");
       setStep('input');
     }
   }
@@ -71,6 +141,14 @@ export default function AgenticIDEPage() {
     setIsTerminating(true);
     const res = await triggerTermination(instanceId);
     if (res.success) {
+      // Update project status
+      if (projectId) {
+        await fetch(`/api/projects/${projectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "terminated" }),
+        });
+      }
       alert("Environment Destroyed");
       handleReset();
     }
@@ -80,10 +158,11 @@ export default function AgenticIDEPage() {
   function handleReset() {
     setStep('input');
     setAnswers({});
-    setUserId("");
+    setProjectName("");
     setDescription("");
     setInstanceId(null);
     setFinalUrl(null);
+    setProjectId(null);
   }
 
   // Animation Helper
@@ -93,18 +172,64 @@ export default function AgenticIDEPage() {
     exit: { opacity: 0, y: -10 }
   };
 
+  // Show loading while checking auth
+  if (isAuthenticated === null) {
+    return (
+      <main className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </main>
+    );
+  }
+
+  // Show auth forms if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <main className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-slate-100 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+        <AnimatePresence mode="wait">
+          {authMode === "login" ? (
+            <motion.div key="login" {...animProps} className="z-10">
+              <LoginForm
+                onSuccess={handleAuthSuccess}
+                onSwitchToSignup={() => setAuthMode("signup")}
+              />
+            </motion.div>
+          ) : (
+            <motion.div key="signup" {...animProps} className="z-10">
+              <SignupForm
+                onSuccess={handleAuthSuccess}
+                onSwitchToLogin={() => setAuthMode("login")}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-slate-100 relative overflow-hidden">
       {/* Background Decor */}
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
 
+      {/* Navigation */}
+      <div className="absolute top-4 right-4 z-20">
+        <a
+          href="/dashboard"
+          className="text-slate-400 hover:text-white text-sm transition-colors"
+        >
+          Dashboard
+        </a>
+      </div>
+
       <AnimatePresence mode="wait">
 
         {step === 'input' && (
           <motion.div key="input" {...animProps} className="z-10">
             <ProjectInput
-              userId={userId} setUserId={setUserId}
+              projectName={projectName} setProjectName={setProjectName}
               description={description} setDescription={setDescription}
               onAnalyze={handleAnalyze} error={error}
             />

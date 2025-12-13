@@ -2,7 +2,7 @@ id: agentic-ide-provisioner
 namespace: dev.agentic
 
 inputs:
-  - id: userId
+  - id: projectName
     type: STRING
     required: true
   - id: projectDescription
@@ -193,9 +193,12 @@ tasks:
         DASHED_IP=${PUBLIC_IP//./-}
         FINAL_URL="https://${DASHED_IP}.sslip.io"
         
-        echo "::{\"outputs\":{\"generated_url\":\"$FINAL_URL\"}}::"
+        echo "::{\"outputs\":{\"generated_url\":\"$FINAL_URL\",\"instance_id\":\"$INSTANCE_ID\"}}::"
 
 outputs:
   - id: final_https_link
     type: STRING
     value: "{{ outputs.provision_ec2.vars.generated_url }}"
+  - id: instance_id
+    type: STRING
+    value: "{{ outputs.provision_ec2.vars.instance_id }}"

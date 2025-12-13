@@ -1,6 +1,6 @@
 'use server'
 
-export async function triggerProvisioning(userId: string, finalPrompt: string) {
+export async function triggerProvisioning(projectName: string, finalPrompt: string) {
     const KESTRA_URL = process.env.KESTRA_URL;
     const USER = process.env.KESTRA_USERNAME;
     const PASS = process.env.KESTRA_PASSWORD;
@@ -9,7 +9,7 @@ export async function triggerProvisioning(userId: string, finalPrompt: string) {
 
     try {
         const formData = new FormData();
-        formData.append("userId", userId);
+        formData.append("projectName", projectName);
 
         // ✅ FIX: Send the raw string. Kestra's "| json" filter will handle the safety.
         formData.append("projectDescription", finalPrompt);
@@ -46,8 +46,8 @@ export async function triggerProvisioning(userId: string, finalPrompt: string) {
 }
 
 export async function triggerTermination(instanceId: string) {
-    const KESTRA_URL = process.env.KESTRA_URL || "http://localhost:8080";
-    const USER = process.env.KESTRA_USER;
+    const KESTRA_URL = process.env.KESTRA_URL;
+    const USER = process.env.KESTRA_USERNAME;
     const PASS = process.env.KESTRA_PASSWORD;
 
     try {

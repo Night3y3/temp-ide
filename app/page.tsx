@@ -13,6 +13,7 @@ import { ProvisioningLoader } from "@/components/ide/ProvisioningLoader";
 import { SuccessView } from "@/components/ide/SuccessView";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SignupForm } from "@/components/auth/SignupForm";
+import { LandingPage } from "@/components/landing/LandingPage";
 import { triggerProvisioning, triggerTermination } from "@/actions/kestra";
 
 export default function AgenticIDEPage() {
@@ -20,6 +21,7 @@ export default function AgenticIDEPage() {
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [showLanding, setShowLanding] = useState(true);
   
   // State
   const [step, setStep] = useState<Step>('input');
@@ -181,12 +183,39 @@ export default function AgenticIDEPage() {
     );
   }
 
-  // Show auth forms if not authenticated
+  // Show landing page or auth forms if not authenticated
   if (!isAuthenticated) {
+    if (showLanding) {
+      return (
+        <main className="min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden">
+          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+          <div className="relative z-10">
+            <LandingPage 
+              onCreateAccount={() => {
+                setShowLanding(false);
+                setAuthMode("signup");
+              }}
+              onLogin={() => {
+                setShowLanding(false);
+                setAuthMode("login");
+              }}
+            />
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-slate-100 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+        <button
+          onClick={() => setShowLanding(true)}
+          className="absolute top-4 left-4 text-slate-400 hover:text-white text-sm transition-colors z-20"
+        >
+          ← Back
+        </button>
         <AnimatePresence mode="wait">
           {authMode === "login" ? (
             <motion.div key="login" {...animProps} className="z-10">

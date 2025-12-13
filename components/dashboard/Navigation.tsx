@@ -49,17 +49,17 @@ export function Navigation() {
             <Button
               variant="ghost"
               onClick={() => router.push("/")}
-              className="text-slate-300 hover:text-white"
+              className="group text-slate-300 hover:text-white hover:bg-blue-500/10 hover:border-blue-500/20 border border-transparent transition-all duration-200 rounded-md px-4 py-2"
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:text-blue-400" />
               New Project
             </Button>
             <Button
               variant="ghost"
               onClick={handleLogout}
-              className="text-slate-300 hover:text-white"
+              className="group text-slate-300 hover:text-white hover:bg-red-500/10 hover:border-red-500/20 border border-transparent transition-all duration-200 rounded-md px-4 py-2"
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="mr-2 h-4 w-4 transition-transform duration-200 group-hover:scale-110 group-hover:text-red-400" />
               Logout
             </Button>
           </div>

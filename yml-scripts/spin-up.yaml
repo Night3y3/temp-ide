@@ -1,0 +1,201 @@
+id: agentic-ide-provisioner
+namespace: dev.agentic
+
+inputs:
+  - id: userId
+    type: STRING
+    required: true
+  - id: projectDescription
+    type: STRING
+    required: true
+    defaults: "Create a Go web server using Gin"
+
+tasks:
+  # ---------------------------------------------------------
+  # TASK 1: THE MEGA AGENT
+  # ---------------------------------------------------------
+  - id: ai_mega_agent
+    type: io.kestra.plugin.core.http.Request
+    uri: "https://api.cerebras.ai/v1/chat/completions"
+    method: "POST"
+    contentType: "application/json"
+    headers:
+      Authorization: "Bearer {{ Secrets.CEREBRAS_API_KEY }}"
+    body:
+      model: "llama-3.3-70b"
+      messages:
+        - role: "system"
+          content: |
+            You are an Expert Full-Stack Generator. Analyze the user request.
+            Return a SINGLE JSON OBJECT:
+            {
+              "stack": "python" | "node" | "go" | "cpp" | "java",
+              "dependencies": "space-separated string",
+              "filename": "main entry file",
+              "code": "working source code",
+              "readme": "markdown content"
+            }
+            STRICT RULES: Return ONLY raw JSON. No markdown backticks.
+        - role: "user"
+          content: "{{ inputs.projectDescription }}"
+      temperature: 0.1
+
+  # ---------------------------------------------------------
+  # TASK 2: THE BUILDER (Fixed Permissions)
+  # ---------------------------------------------------------
+  - id: provision_ec2
+    type: io.kestra.plugin.aws.cli.AwsCLI
+    accessKeyId: "{{ Secrets.AWS_ACCESS_KEY }}"
+    secretKeyId: "{{ Secrets.AWS_SECRET_KEY }}"
+    region: "ap-south-1"
+    commands:
+      - yum install -y jq
+
+      # 1. EXTRACT DATA SAFELY
+      - |
+        cat <<EOF > raw_response.json
+        {{ outputs.ai_mega_agent.body | jq('.choices[0].message.content') | first }}
+        EOF
+
+        cat raw_response.json | sed 's/```json//g' | sed 's/```//g' > blueprint.json
+        
+        # Verify JSON
+        if ! jq . blueprint.json > /dev/null 2>&1; then
+          echo "❌ Error: AI returned invalid JSON"
+          cat blueprint.json
+          exit 1
+        fi
+
+        jq -r '.stack' blueprint.json > stack.txt
+        jq -r '.dependencies' blueprint.json > deps.txt
+        jq -r '.filename' blueprint.json > filename.txt
+        jq -r '.code' blueprint.json > code.txt
+        jq -r '.readme' blueprint.json > readme.md
+
+        STACK=$(cat stack.txt)
+        echo "🚀 Blueprint Received: Building $STACK Project..."
+
+      # 2. CREATE USER DATA SCRIPT
+      - |
+        cat <<EOF > user_data.sh
+        #!/bin/bash
+        
+        # --- PHASE 1: IMMEDIATE SETUP ---
+        mkdir -p /home/ubuntu/workspace/src
+        
+        # Inject Files
+        cat <<FILE_END > /home/ubuntu/workspace/README.md
+        $(cat readme.md)
+        FILE_END
+        
+        cat <<FILE_END > /home/ubuntu/workspace/$(cat filename.txt)
+        $(cat code.txt)
+        FILE_END
+        
+        # Fix Permissions (Initial)
+        chown -R ubuntu:ubuntu /home/ubuntu/workspace
+        
+        # Configure IDE
+        sed -i 's|ExecStart=/usr/bin/code-server|ExecStart=/usr/bin/code-server /home/ubuntu/workspace|g' /lib/systemd/system/code-server@.service
+        systemctl daemon-reload
+        systemctl restart code-server@ubuntu
+
+        # --- PHASE 2: HTTPS SETUP ---
+        TOKEN=\$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+        PUBLIC_IP=\$(curl -H "X-aws-ec2-metadata-token: \$TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4)
+        DOMAIN="\${PUBLIC_IP//./-}.sslip.io"
+        
+        cat <<CADDYEOF > /etc/systemd/system/caddy.service
+        [Unit]
+        Description=Caddy Proxy
+        After=network.target
+        [Service]
+        ExecStart=/usr/bin/caddy reverse-proxy --from \$DOMAIN --to localhost:8080
+        Restart=always
+        User=root
+        [Install]
+        WantedBy=multi-user.target
+        CADDYEOF
+        
+        systemctl daemon-reload
+        systemctl enable caddy
+        systemctl restart caddy
+
+        # --- PHASE 3: BACKGROUND INSTALLS ---
+        (
+            cd /home/ubuntu/workspace
+            DEPS="$(cat deps.txt)"
+            echo "⏳ Installing dependencies in background..." >> README.md
+            
+            if [[ "$STACK" == "python" ]]; then
+                sudo apt-get update
+                sudo apt-get install -y python3-venv python3-pip
+                
+                # Create venv
+                python3 -m venv venv --system-site-packages
+                source venv/bin/activate
+                
+                if [ -n "\$DEPS" ] && [ "\$DEPS" != "null" ]; then 
+                    pip install \$DEPS
+                fi
+                
+            elif [[ "$STACK" == "go" ]]; then
+                export PATH=\$PATH:/snap/bin
+                go mod init generated_app
+                go mod tidy
+                if [ -n "\$DEPS" ] && [ "\$DEPS" != "null" ]; then go get \$DEPS; fi
+                
+            elif [[ "$STACK" == "node" ]]; then
+                npm init -y
+                if [ -n "\$DEPS" ] && [ "\$DEPS" != "null" ]; then npm install \$DEPS; fi
+
+            elif [[ "$STACK" == "cpp" ]]; then
+                if [ -n "\$DEPS" ] && [ "\$DEPS" != "null" ]; then sudo apt update && sudo apt install -y \$DEPS; fi
+                echo "all:" > Makefile
+                echo -e "\tg++ -o app $(cat filename.txt)" >> Makefile
+
+            elif [[ "$STACK" == "java" ]]; then
+                MAINfile="$(cat filename.txt)"
+                echo "javac \$MAINfile && java \${MAINfile%.*}" > run.sh
+                chmod +x run.sh
+            fi
+            
+            echo "✅ Dependencies Installed!" >> README.md
+            
+            # --- FIX: GIVE OWNERSHIP BACK TO USER ---
+            # Since this background job ran as root, we must give the files back to ubuntu
+            chown -R ubuntu:ubuntu /home/ubuntu/workspace
+            
+        ) &
+        
+        EOF
+
+      # 3. LAUNCH INSTANCE
+      - |
+        INSTANCE_ID=$(aws ec2 run-instances \
+          --image-id "ami-{{ Secrets.AWS_AMI_ID }}" \
+          --count 1 \
+          --instance-type t3.medium \
+          --key-name "ide-key" \
+          --security-group-ids "{{ Secrets.AWS_SECURITY_GROUP_ID }}" \
+          --user-data file://user_data.sh \
+          --query 'Instances[0].InstanceId' \
+          --output text)
+
+      # 4. WAIT & GET URL
+      - aws ec2 wait instance-running --instance-ids $INSTANCE_ID
+      - |
+        PUBLIC_IP=$(aws ec2 describe-instances \
+          --instance-ids $INSTANCE_ID \
+          --query 'Reservations[0].Instances[0].PublicIpAddress' \
+          --output text)
+        
+        DASHED_IP=${PUBLIC_IP//./-}
+        FINAL_URL="https://${DASHED_IP}.sslip.io"
+        
+        echo "::{\"outputs\":{\"generated_url\":\"$FINAL_URL\"}}::"
+
+outputs:
+  - id: final_https_link
+    type: STRING
+    value: "{{ outputs.provision_ec2.vars.generated_url }}"

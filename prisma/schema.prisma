@@ -12,3 +12,44 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  instances Instance[]
+  createdAt DateTime   @default(now())
+}
+
+model Instance {
+  id            String         @id @default(cuid())
+  
+  // 1. Ownership & Identity
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  name          String         
+  prompt        String         
+  
+  // 2. Orchestration (Kestra)
+  kestraId      String?        
+  
+  // 3. Infrastructure (AWS)
+  awsInstanceId String?        
+  publicIp      String?        
+  url           String?        
+  
+  // 4. Lifecycle State
+  status        InstanceStatus @default(PROVISIONING)
+  
+  // 5. Timestamps & Expiry
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  expiresAt     DateTime?      
+}
+
+enum InstanceStatus {
+  PROVISIONING  
+  READY         
+  STOPPED       
+  TERMINATED    
+  FAILED        
+}

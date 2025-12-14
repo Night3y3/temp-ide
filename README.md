@@ -1,36 +1,189 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Agentic IDE
 
-## Getting Started
+An AI-powered platform that automatically provisions cloud-based development environments with starter code. Describe your project idea, and get a fully configured VS Code IDE in the cloud with a single-file starter code ready to go.
 
-First, run the development server:
+## 🚀 Features
 
+- **AI-Powered Setup**: Describe your project in plain English, and AI generates starter code and sets up your development environment
+- **Single-File Starter**: Get a ready-to-run starter file in your preferred stack (Python, Node.js, Go, C++, Java, and more)
+- **Cloud-Based IDE**: Access VS Code in your browser instantly—no local setup or configuration required
+- **Project Dashboard**: Manage all your IDE environments from one place, track projects, and access them anytime
+- **User Authentication**: Secure email/password authentication with JWT tokens
+- **Project History**: Track all your projects with status monitoring (provisioning, active, terminated)
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Next.js 16** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first CSS framework
+- **Framer Motion** - Smooth animations and transitions
+- **Radix UI** - Accessible component primitives
+- **Lucide React** - Icon library
+
+### Backend
+- **Next.js API Routes** - Serverless API endpoints
+- **Prisma** - Type-safe database ORM
+- **PostgreSQL** - Relational database
+- **JWT** - Authentication tokens
+- **bcryptjs** - Password hashing
+
+### Infrastructure & Orchestration
+- **Kestra** - Workflow orchestration platform
+- **AWS EC2** - Cloud infrastructure provisioning
+- **Cerebras AI** - LLM API for code generation
+- **Caddy** - Reverse proxy for HTTPS
+
+## 📋 Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Node.js** 18+ and npm/bun
+- **PostgreSQL** database
+- **Kestra** instance (for workflow orchestration)
+- **AWS Account** with EC2 access
+- **Cerebras AI API Key** (or compatible LLM API)
+
+## 🔧 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Night3y3/temp-ide.git
+   cd temp-ide
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   # or
+   bun install
+   ```
+
+3. **Set up environment variables**
+   
+   Create a `.env` file in the root directory:
+   ```env
+   # Database
+   DATABASE_URL="postgresql://user:password@localhost:5432/agentic_ide"
+
+   # Authentication
+   JWT_SECRET="your-secret-key-change-in-production"
+
+   # Kestra Configuration
+   KESTRA_URL="http://localhost:8080"
+   KESTRA_USERNAME="your-kestra-username"
+   KESTRA_PASSWORD="your-kestra-password"
+
+   # AWS Configuration
+   AWS_ACCESS_KEY="your-aws-access-key"
+   AWS_SECRET_KEY="your-aws-secret-key"
+   AWS_AMI_ID="ami-xxxxxxxxx"
+   AWS_SECURITY_GROUP_ID="sg-xxxxxxxxx"
+
+   # AI API
+   CEREBRAS_API_KEY="your-cerebras-api-key"
+   ```
+
+4. **Set up the database**
+   ```bash
+   # Generate Prisma Client
+   npx prisma generate
+
+   # Run migrations
+   npx prisma migrate dev
+   ```
+
+5. **Configure Kestra workflows**
+   
+   Upload the workflow files from `yml-scripts/` to your Kestra instance:
+   - `spin-up.yaml` - Provisions new IDE environments
+   - `terminate-instance.yml` - Terminates environments
+
+## 🚀 Running the Application
+
+### Development Mode
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 # or
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production Build
+```bash
+npm run build
+npm start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📁 Project Structure
 
-## Learn More
+```
+temp-ide/
+├── app/                      # Next.js app directory
+│   ├── api/                  # API routes
+│   │   ├── auth/            # Authentication endpoints
+│   │   ├── projects/        # Project management endpoints
+│   │   └── plan/            # AI planning endpoint
+│   ├── dashboard/            # Dashboard pages
+│   └── page.tsx             # Landing page
+├── components/               # React components
+│   ├── auth/                # Authentication components
+│   ├── dashboard/            # Dashboard components
+│   ├── ide/                 # IDE-related components
+│   ├── landing/             # Landing page components
+│   └── ui/                  # Reusable UI components
+├── lib/                      # Utility libraries
+│   ├── auth.ts              # Authentication utilities
+│   ├── prisma.ts            # Prisma client
+│   └── utils.ts             # General utilities
+├── actions/                  # Server actions
+│   ├── kestra.ts            # Kestra integration
+│   └── syncStatus.ts        # Status synchronization
+├── prisma/                   # Database schema and migrations
+│   └── schema.prisma        # Prisma schema
+├── yml-scripts/              # Kestra workflow definitions
+│   ├── spin-up.yaml         # Provision workflow
+│   └── terminate-instance.yml # Termination workflow
+└── public/                   # Static assets
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🔄 Workflow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **User Registration/Login**: Create account or login
+2. **Project Description**: User describes their project idea
+3. **AI Analysis**: AI analyzes the description and asks clarifying questions
+4. **Provisioning**: System provisions EC2 instance with VS Code
+5. **Code Generation**: AI generates starter code file
+6. **IDE Access**: User receives URL to access their IDE
+7. **Project Management**: User can manage projects from dashboard
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📝 Environment Variables Reference
 
-## Deploy on Vercel
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `JWT_SECRET` | Secret key for JWT tokens | Yes |
+| `KESTRA_URL` | Kestra instance URL | Yes |
+| `KESTRA_USERNAME` | Kestra authentication username | Yes |
+| `KESTRA_PASSWORD` | Kestra authentication password | Yes |
+| `AWS_ACCESS_KEY` | AWS access key ID | Yes |
+| `AWS_SECRET_KEY` | AWS secret access key | Yes |
+| `AWS_AMI_ID` | AWS AMI ID for EC2 instances | Yes |
+| `AWS_SECURITY_GROUP_ID` | AWS security group ID | Yes |
+| `CEREBRAS_API_KEY` | Cerebras AI API key | Yes |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🤝 Contributing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📚 Additional Resources
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [Kestra Documentation](https://kestra.io/docs)
+- [AWS EC2 Documentation](https://docs.aws.amazon.com/ec2/)
+
+---
+
+Built with ❤️ using Next.js, Prisma, and Kestra by @Night3y3

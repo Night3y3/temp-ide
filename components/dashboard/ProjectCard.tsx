@@ -8,6 +8,7 @@ interface Project {
   name: string;
   description: string;
   url: string | null;
+  instanceId: string | null;
   status: string;
   createdAt: string;
 }
@@ -15,9 +16,10 @@ interface Project {
 interface ProjectCardProps {
   project: Project;
   onDelete: (id: string) => Promise<void>;
+  onTerminate?: (instanceId: string) => Promise<void>;
 }
 
-export function ProjectCard({ project, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onDelete, onTerminate }: ProjectCardProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
@@ -82,6 +84,18 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
             Open IDE
           </Button>
         )}
+
+        {project.status === "active" && project.instanceId && onTerminate && (
+          <Button
+            variant="destructive"
+            onClick={() => onTerminate(project.instanceId!)}
+            className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border-amber-600/30"
+          >
+            <div className="h-4 w-4 border-2 border-current rounded-sm" /> {/* Stop Icon */}
+            <span className="sr-only">Hibernate</span>
+          </Button>
+        )}
+
         <Button
           variant="destructive"
           onClick={() => onDelete(project.id)}

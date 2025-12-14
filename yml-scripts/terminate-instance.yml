@@ -1,0 +1,24 @@
+id: agentic-ide-terminator
+namespace: dev.agentic
+
+inputs:
+  - id: instanceId
+    type: STRING
+    required: true
+
+tasks:
+  - id: terminate_instance
+    type: io.kestra.plugin.aws.cli.AwsCLI
+    accessKeyId: "{{ env.AWS_ACCESS_KEY_ID }}"
+    secretKeyId: "{{ env.AWS_SECRET_ACCESS_KEY }}"
+    region: "{{ env.AWS_REGION }}"
+    commands:
+      - |
+        echo "💥 Terminating Instance: {{ inputs.instanceId }}..."
+        aws ec2 terminate-instances --instance-ids "{{ inputs.instanceId }}"
+        aws ec2 wait instance-terminated --instance-ids "{{ inputs.instanceId }}"
+        echo "✅ Instance Terminated Successfully"
+
+  - id: return_status
+    type: io.kestra.plugin.core.debug.Return
+    format: "Environment Destroyed"

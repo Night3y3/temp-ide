@@ -22,7 +22,7 @@ export default function AgenticIDEPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [showLanding, setShowLanding] = useState(true);
-  
+
   // State
   const [step, setStep] = useState<Step>('input');
   const [projectName, setProjectName] = useState("");
@@ -102,33 +102,13 @@ export default function AgenticIDEPage() {
       const finalPrompt = `PROJECT GOAL: ${description}\nTECH SPECS:\n${clarifications}`;
 
       const safePrompt = finalPrompt.replace(/\r/g, "");
-      const result = await triggerProvisioning(projectName, safePrompt);
+      const result = await triggerProvisioning(projectName, safePrompt, project.id);
 
       if (result.success && result.url) {
         setFinalUrl(result.url);
         setInstanceId(result.instanceId || null);
-
-        // Update project with URL and instanceId
-        await fetch(`/api/projects/${project.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: result.url,
-            instanceId: result.instanceId || null,
-            status: "active",
-          }),
-        });
-
         setStep('completed');
       } else {
-        // Update project status to failed
-        if (project.id) {
-          await fetch(`/api/projects/${project.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "terminated" }),
-          });
-        }
         setError(result.error || "Provisioning failed");
         setStep('input');
       }
@@ -191,7 +171,7 @@ export default function AgenticIDEPage() {
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
           <div className="relative z-10">
-            <LandingPage 
+            <LandingPage
               onCreateAccount={() => {
                 setShowLanding(false);
                 setAuthMode("signup");

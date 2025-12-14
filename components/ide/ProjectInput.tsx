@@ -44,7 +44,7 @@ export function ProjectInput({ projectName, setProjectName, description, setDesc
                     <label className="text-sm font-medium text-slate-300">Project Description</label>
                     {/* FIX 2: Add 'resize-none' to prevent user resizing breakage */}
                     <Textarea
-                        placeholder="e.g. A Python Flask app that tracks crypto prices..."
+                        placeholder="e.g. A go server with gin"
                         className="h-32 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 resize-none focus-visible:ring-blue-500"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}

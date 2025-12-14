@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyToken, getTokenFromCookie } from "@/lib/auth";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const cookieHeader = req.headers.get("cookie");
     const token = getTokenFromCookie(cookieHeader);
 
@@ -18,7 +20,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
     const project = await prisma.project.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: payload.userId,
       },
     });
@@ -34,8 +36,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const cookieHeader = req.headers.get("cookie");
     const token = getTokenFromCookie(cookieHeader);
 
@@ -52,7 +55,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
     const project = await prisma.project.updateMany({
       where: {
-        id: params.id,
+        id,
         userId: payload.userId,
       },
       data: body,
@@ -63,7 +66,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     const updatedProject = await prisma.project.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ project: updatedProject });
@@ -73,8 +76,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const cookieHeader = req.headers.get("cookie");
     const token = getTokenFromCookie(cookieHeader);
 
@@ -89,7 +93,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
 
     const project = await prisma.project.deleteMany({
       where: {
-        id: params.id,
+        id,
         userId: payload.userId,
       },
     });

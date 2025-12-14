@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { ProjectCard } from "./ProjectCard";
 import { Loader2 } from "lucide-react";
 
+import { triggerTermination } from "@/actions/kestra";
+
 interface Project {
   id: string;
   name: string;
   description: string;
   url: string | null;
+  instanceId: string | null;
   status: string;
   createdAt: string;
 }
@@ -46,9 +49,36 @@ export function ProjectList() {
     }
   }
 
+  async function handleTerminate(instanceId: string) {
+    if (!confirm("Are you sure you want to stop this environment?")) return;
+
+    try {
+      const res = await triggerTermination(instanceId);
+      if (!res.success) throw new Error(res.error || "Termination failed");
+
+      // Optimistic update or refetch
+      await fetchProjects();
+    } catch (err: any) {
+      alert(err.message || "Failed to terminate environment");
+    }
+  }
+
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    const hasProvisioning = projects.some((p) => p.status === "provisioning");
+    let interval: NodeJS.Timeout;
+
+    if (hasProvisioning) {
+      interval = setInterval(fetchProjects, 3000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [projects]);
 
   if (loading) {
     return (
@@ -89,7 +119,12 @@ export function ProjectList() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {projects.map((project) => (
-        <ProjectCard key={project.id} project={project} onDelete={handleDelete} />
+        <ProjectCard
+          key={project.id}
+          project={project}
+          onDelete={handleDelete}
+          onTerminate={handleTerminate}
+        />
       ))}
     </div>
   );

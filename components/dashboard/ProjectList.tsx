@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { ProjectCard } from "./ProjectCard";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 
 import { triggerTermination } from "@/actions/kestra";
+import { syncProjectStatuses } from "@/actions/syncStatus";
 
 interface Project {
   id: string;
@@ -20,6 +21,7 @@ export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   async function fetchProjects() {
     try {
@@ -31,6 +33,18 @@ export function ProjectList() {
       setError(err.message || "Failed to load projects");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      await syncProjectStatuses();
+      await fetchProjects();
+    } catch (err) {
+      console.error("Sync failed:", err);
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -50,7 +64,7 @@ export function ProjectList() {
   }
 
   async function handleTerminate(instanceId: string) {
-    if (!confirm("Are you sure you want to stop this environment?")) return;
+    if (!confirm("Are you sure you want to terminate this environment?")) return;
 
     try {
       const res = await triggerTermination(instanceId);
@@ -64,7 +78,8 @@ export function ProjectList() {
   }
 
   useEffect(() => {
-    fetchProjects();
+    // Sync statuses on initial load, then fetch projects
+    syncProjectStatuses().then(() => fetchProjects());
   }, []);
 
   useEffect(() => {
@@ -117,16 +132,28 @@ export function ProjectList() {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {projects.map((project) => (
-        <ProjectCard
-          key={project.id}
-          project={project}
-          onDelete={handleDelete}
-          onTerminate={handleTerminate}
-        />
-      ))}
-    </div>
+    <>
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Syncing...' : 'Refresh Status'}
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {projects.map((project) => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            onDelete={handleDelete}
+            onTerminate={handleTerminate}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 

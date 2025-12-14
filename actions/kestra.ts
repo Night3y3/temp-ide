@@ -22,6 +22,7 @@ export async function triggerProvisioning(projectName: string, finalPrompt: stri
                 method: "POST",
                 headers: {
                     "Authorization": `Basic ${Buffer.from(`${USER}:${PASS}`).toString("base64")}`,
+                    "ngrok-skip-browser-warning": "true",
                 },
                 body: formData,
                 cache: "no-store",
@@ -89,6 +90,7 @@ export async function triggerTermination(instanceId: string) {
                 method: "POST",
                 headers: {
                     "Authorization": `Basic ${Buffer.from(`${USER}:${PASS}`).toString("base64")}`,
+                    "ngrok-skip-browser-warning": "true",
                 },
                 body: formData,
                 cache: "no-store",
